@@ -144,6 +144,7 @@ endif
 MY_SWIG		 := swig
 MY_JAVA	 	 := "$(JAVA_BIN)/java"
 MY_JAVAC	 := "$(JAVA_BIN)/javac"
+MY_JAR       := "$(JAVA_BIN)/jar"
 ifneq ($(OS),android)
   MY_JNI_CFLAGS  := -I"$(JAVA_INC)" -I"$(JAVA_INC)/win32" \
 		    -I"$(JAVA_INC)/linux" -I"$(JAVA_INC)/darwin" -I.
@@ -175,9 +176,9 @@ endif
 
 MY_APP_JAVA := android/app/src/main/java/$(subst .,/,$(MY_PACKAGE_NAME))/app/MyApp.java
 
-.PHONY: all java install uninstall
+.PHONY: all java jar install uninstall sample3
 
-all: $(LIBPJSUA2_SO) java
+all: $(LIBPJSUA2_SO) java jar
 
 $(LIBPJSUA2_SO): $(OUT_DIR)/pjsua2_wrap.o
 ifeq ($(OS),android)
@@ -195,16 +196,17 @@ $(OUT_DIR)/pjsua2_wrap.o: $(OUT_DIR)/pjsua2_wrap.cpp Makefile
 $(OUT_DIR)/pjsua2_wrap.cpp: ../pjsua2.i ../symbols.i ../and_string.i $(SRCS)
 	mkdir -p $(MY_PACKAGE_PATH)
 	mkdir -p $(OUT_DIR)
-	swig $(SWIG_FLAGS) -java  -package $(MY_PACKAGE_NAME) \
+	swig $(SWIG_FLAGS) -java -package $(MY_PACKAGE_NAME) \
 		-outdir $(MY_PACKAGE_PATH) \
 		-o $(OUT_DIR)/pjsua2_wrap.cpp ../pjsua2.i
 
 clean distclean realclean:
 	rm -rf $(LIBPJSUA2_SO) $(OUT_DIR)/* \
 		$(MY_PACKAGE_PATH)/*.java $(MY_PACKAGE_PATH)/*.class \
-		$(MY_PACKAGE_PATH)/../*.java $(MY_PACKAGE_PATH)/../*.class
+		$(MY_PACKAGE_PATH)/../*.java $(MY_PACKAGE_PATH)/../*.class \
+		$(OUT_DIR)/pjsua2.jar
 
-java: $(MY_PACKAGE_PATH)/Error.class $(MY_PACKAGE_PATH)/test.class $(MY_PACKAGE_PATH)/sample.class
+java: $(MY_PACKAGE_PATH)/Error.class
 ifneq (,$(findstring PJMEDIA_VIDEO_DEV_HAS_ANDROID=1,$(ANDROID_CFLAGS)))
 	@echo "Copying Android camera helper components..."
 	cp $(PJDIR)/pjmedia/src/pjmedia-videodev/android/PjCamera*.java $(MY_PACKAGE_PATH)/..
@@ -215,30 +217,16 @@ ifneq (,$(findstring PJMEDIA_AUDIO_DEV_HAS_OBOE=1,$(OBOE_CFLAGS)))
 endif
 
 $(MY_PACKAGE_PATH)/Error.class: $(MY_PACKAGE_PATH)/Error.java
-	$(MY_JAVAC) -d $(OUT_DIR) $(MY_PACKAGE_PATH)/*.java $(MY_APP_JAVA)
+	$(MY_JAVAC) -d $(OUT_DIR) $(MY_PACKAGE_PATH)/*.java
 
-$(MY_PACKAGE_PATH)/test.class: test.java
-	$(MY_JAVAC) -d $(OUT_DIR) -classpath "$(OUT_DIR)" test.java
-	
-$(MY_PACKAGE_PATH)/sample.class: sample.java
-	$(MY_JAVAC) -d $(OUT_DIR) -classpath "$(OUT_DIR)" sample.java
-	@# Build javafx sample app
-	@# $(MY_JAVAC) -d $(OUT_DIR) -classpath "$(OUT_DIR)" sample2.java
+jar: java
+	@echo "Creating pjsua2.jar..."
+	cd $(OUT_DIR) && $(MY_JAR) cf pjsua2.jar org/pjsip/pjsua2/*
+	@echo "JAR file created: $(OUT_DIR)/pjsua2.jar"
 
-test:
-	@# Need to specify classpath and library path, alternatively,
-	@# they can be set via CLASSPATH and java.library.path env settings
-	$(MY_JAVA) -cp "$(OUT_DIR)" -Djava.library.path="$(OUT_DIR)" test
-	
-sample:
-	@# Need to specify classpath and library path, alternatively,
-	@# they can be set via CLASSPATH and java.library.path env settings
-	$(MY_JAVA) -cp "$(OUT_DIR)" -Djava.library.path="$(OUT_DIR)" \
-		org.pjsip.pjsua2.app.sample	
-	@# This is for sample2 app
-	@# $(MY_JAVA) -cp "$(OUT_DIR)" -Djava.library.path="$(OUT_DIR)" \
-	@#	org.pjsip.pjsua2.app.sample2	        
+sample3: jar
+	$(MY_JAVAC) -d $(OUT_DIR) -classpath "$(OUT_DIR)" sample3.java
+	@echo "sample3.java compiled successfully"
 
 install:
 uninstall:
-
